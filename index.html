@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام البصمة المتكامل | المبرمج بدر المطيري</title>
+    <!-- Theme color used by browsers when the app is installed as a PWA -->
+    <meta name="theme-color" content="#0d5c4d">
+    <!-- Link to the PWA manifest, which provides metadata about the app such as name, icons and start URL.  According to Microsoft Edge documentation, adding a manifest turns a regular web site into an installable PWA【920758549097399†L203-L214】. -->
+    <link rel="manifest" href="manifest.json">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --primary: #0d5c4d; --accent: #e67e22; --bg: #f0f4f8; --card: #ffffff; 
+            --gold: #d4af37; --danger: #e74c3c; --success: #27ae60; --text: #334155;
+            --input-bg: #f8fafc; --prayer-bg: #f8fafc;
+        }
+        [data-theme="dark"] {
+            --bg: #0f172a; --card: #1e293b; --text: #f1f5f9;
+            --input-bg: #334155; --prayer-bg: #334155;
+        }
+        body { font-family: 'Tajawal', sans-serif; background-color: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; color: var(--text); transition: 0.3s; min-height: 100vh; }
+        .container { width: 95%; max-width: 700px; background: var(--card); border-radius: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); padding: 30px; position: relative; overflow: hidden; margin-top: 20px; }
+        .theme-toggle { position: absolute; top: 55px; left: 20px; background: var(--input-bg); border: 2px solid var(--gold); cursor: pointer; font-size: 1.2rem; width: 45px; height: 45px; border-radius: 50%; z-index: 1000; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        
+        .marquee-wrapper { 
+            background: #fdfaf0; border-bottom: 2px solid var(--gold); overflow: hidden; white-space: nowrap; 
+            padding: 12px 0; margin: -30px -30px 40px -30px; width: calc(100% + 60px); position: relative; z-index: 1; 
+        }
+        [data-theme="dark"] .marquee-wrapper { background: #334155; border-bottom-color: #10b981; }
+        .marquee-container { display: inline-block; white-space: nowrap; animation: marquee 120s linear infinite; }
+        .marquee-content { display: inline-block; font-weight: 700; color: var(--primary); font-size: 1rem; padding-right: 50px; }
+        [data-theme="dark"] .marquee-content { color: var(--gold); }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+        .clock-wrapper { display: flex; align-items: center; justify-content: center; gap: 12px; background: #1e293b; padding: 12px; border-radius: 20px; border: 2px solid #10b981; margin-bottom: 25px; margin-top: 10px; }
+        .live-clock { color: #10b981; font-family: 'Cairo'; font-size: 1.8rem; font-weight: 900; }
+        .prayer-box { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; background: var(--prayer-bg); padding: 12px; border-radius: 20px; margin-bottom: 25px; }
+        .prayer-item { text-align: center; padding: 8px; background: var(--card); border-radius: 10px; }
+        .prayer-time { font-family: 'Cairo'; font-size: 0.9rem; font-weight: 700; color: var(--primary); }
+        
+        label { display: block; font-weight: 700; margin-bottom: 6px; font-size: 0.9rem; }
+        select, input { width: 100%; padding: 12px; border: 2px solid rgba(0,0,0,0.05); border-radius: 12px; font-size: 1rem; background: var(--input-bg); color: var(--text); outline: none; box-sizing: border-box; }
+        
+        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .res-box { padding: 20px; border-radius: 25px; text-align: center; color: white; }
+        .out-bg { background: linear-gradient(135deg, var(--primary), #1a7a65); }
+        .stamp-bg { background: linear-gradient(135deg, #e67e22, #d35400); }
+        .res-val { font-family: 'Cairo'; font-size: 1.5rem; font-weight: 900; }
+        
+        .signature-area { margin-top: 30px; padding-top: 15px; text-align: center; border-top: 2px double var(--gold); }
+        .sig-name { font-weight: 900; color: var(--primary); font-size: 1.2rem; display: block; font-family: 'Cairo'; margin-top: 5px; }
+        .alert-msg { background: #fff5f5; border: 1px dashed var(--danger); color: var(--danger); padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; font-weight: bold; display: none; }
+        .warning-msg { background: #fff3cd; border: 1px dashed #ffc107; color: #856404; padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; font-weight: bold; display: none; }
+    </style>
+</head>
+<body onload="init()">
+
+<div class="container">
+    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+    <div class="marquee-wrapper">
+        <div class="marquee-container">
+            <div class="marquee-content" id="athkar">...</div>
+        </div>
+    </div>
+
+    <div class="clock-wrapper">
+        <span style="color:white; font-family:'Cairo'; margin-left:10px;">الوقت الآن:</span>
+        <div class="live-clock" id="clock">00:00:00</div>
+    </div>
+    
+    <div class="prayer-box" id="prayers">
+        <div class="prayer-item"><small>الفجر</small><div class="prayer-time" id="fajr">--:--</div></div>
+        <div class="prayer-item"><small>الشروق</small><div class="prayer-time" id="sunrise">--:--</div></div>
+        <div class="prayer-item"><small>الظهر</small><div class="prayer-time" id="dhuhr">--:--</div></div>
+        <div class="prayer-item"><small>العصر</small><div class="prayer-time" id="asr">--:--</div></div>
+        <div class="prayer-item"><small>المغرب</small><div class="prayer-time" id="maghrib">--:--</div></div>
+        <div class="prayer-item"><small>العشاء</small><div class="prayer-time" id="isha">--:--</div></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+        <div class="input-group"><label>👤 الجنس</label><select id="gender" oninput="calculate()"><option value="female">أنثى</option><option value="male">ذكر</option></select></div>
+        <div class="input-group"><label>🕒 وقت الحضور</label><input type="time" id="actEntry" oninput="calculate()"></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+        <div class="input-group"><label>📝 الاستئذان</label><select id="pType" oninput="calculate()"><option value="none">بدون</option><option value="entry">دخول</option><option value="exit">خروج</option></select></div>
+        <div id="pExtra" class="input-group" style="display:none;"><label id="extraLabel">التفاصيل</label><input type="time" id="pStart" value="07:00" oninput="calculate()"><select id="pExHours" oninput="calculate()" style="display:none;"><option value="1">1 ساعة</option><option value="2">2 ساعة</option><option value="3">3 ساعات</option></select></div>
+    </div>
+
+    <div id="alertMsg" class="alert-msg"></div>
+    <div id="warningMsg" class="warning-msg" style="display:none;"></div>
+
+    <div class="results-grid">
+        <div class="res-box out-bg"><small>وقت الخروج النهائي</small><div class="res-val" id="outVal">--:--</div></div>
+        <div class="res-box stamp-bg"><small>بصمة التواجد</small><div class="res-val" id="stampVal">--:--</div></div>
+    </div>
+
+    <div id="statusLabel" style="margin-top:15px; font-size:0.9rem; font-weight:700; padding:10px; border-radius:12px; text-align:center; display:none;"></div>
+
+    <div class="signature-area">
+        <div style="font-size: 0.8rem; opacity: 0.7;">تطوير وتصميم المبرمج</div>
+        <span class="sig-name">بدر فلاح المطيري</span>
+    </div>
+</div>
+
+<!-- Register the service worker to enable offline caching and installation.  A service worker allows the app to work offline by caching files and intercepting network requests, which is a key part of making a PWA【920758549097399†L245-L267】. -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('sw.js').then(function(registration) {
+        // Registration was successful
+        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+      }, function(err) {
+        // registration failed :(
+        console.log('ServiceWorker registration failed: ', err);
+      });
+    });
+  }
+</script>
+<script>
+    function toggleTheme() { document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
+
+    async function init() {
+        const azkar = ["اللَّهُمَّ بَارِكْ لِي فِي وَقْتِي", "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ", "لَا إِلَهَ إِلَّا أَنْتَ سُبْحَانَكَ", "اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ", "رَبِّ اشْرَحْ لِي صَدْرِي", "سُبْحَانَ اللَّهِ الْعَظِيمِ", "اللَّهُمَّ أَعِنِّي عَلَى ذِكْرِكَ"];
+        const fullTxt = azkar.join(" ۞ ") + " ۞ ";
+        document.getElementById('athkar').innerText = fullTxt + fullTxt + fullTxt;
+        setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('en-GB'); }, 1000);
+        try {
+            const r = await fetch('https://api.aladhan.com/v1/timingsByCity?city=Kuwait%20City&country=Kuwait&method=10');
+            const d = await r.json();
+            const t = d.data.timings;
+            ['Fajr','Sunrise','Dhuhr','Asr','Maghrib','Isha'].forEach(p => { if(document.getElementById(p.toLowerCase())) document.getElementById(p.toLowerCase()).innerText = t[p]; });
+        } catch(e) {}
+    }
+
+    function calculate() {
+        const entry = document.getElementById('actEntry').value;
+        const type = document.getElementById('pType').value;
+        const gen = document.getElementById('gender').value;
+        const alert = document.getElementById('alertMsg');
+        const warning = document.getElementById('warningMsg');
+        
+        if(!entry) return;
+
+        const [h, m] = entry.split(':').map(Number);
+        const mins = h * 60 + m;
+        alert.style.display = 'none';
+        warning.style.display = 'none';
+
+        // التحقق من وقت الحضور
+        if (mins < 390) { // قبل 6:30
+            alert.innerText = "⚠️ البصمة لا تعمل قبل الساعة 6:30 صباحاً"; 
+            alert.style.display = 'block'; 
+            reset(); 
+            return; 
+        }
+        
+        if (mins > 720) { // بعد 12:00
+            alert.innerText = "⚠️ الحد الأقصى للحضور: 12:00 ظهراً"; 
+            alert.style.display = 'block'; 
+            reset(); 
+            return;
+        }
+
+        // تحذير للحضور المتأخر (بعد 9:00 بدون إذن)
+        if (type === 'none' && mins > 540) {
+            if (mins >= 545 && mins <= 570) { // فترة السماح
+                warning.innerText = "✅ فترة السماح: 9:05-9:30 (تعتبر كحضور 9:30)"; 
+                warning.style.display = 'block';
+            } else { // دخول متأخر بدون إذن
+                warning.innerText = "⚠️ دخول متأخر - سيتم خصم وقت التأخير"; 
+                warning.style.display = 'block';
+            }
+        }
+
+        document.getElementById('pExtra').style.display = (type === 'none') ? 'none' : 'block';
+        document.getElementById('pStart').style.display = (type === 'entry') ? 'block' : 'none';
+        document.getElementById('pExHours').style.display = (type === 'exit') ? 'block' : 'none';
+
+        // حساب وقت الحضور الفعال مع فترة السماح
+        let effectiveEntry = mins;
+        if (mins >= 545 && mins <= 570) { // فترة السماح 9:05-9:30
+            effectiveEntry = 570; // تعتبر كحضور 9:30
+        } else if (mins >= 390 && mins <= 420) { // الحضور 6:30-7:00
+            effectiveEntry = 420; // تعتبر كحضور 7:00
+        }
+
+        // تحديد أوقات الخروج الافتراضية
+        const baseExitMale = 13 * 60 + 30;    // 13:30 للذكور
+        const baseExitFemale = 13 * 60 + 15;  // 13:15 للإناث
+        
+        let outM;
+        
+        // حساب وقت الخروج بناءً على وقت الحضور الفعلي
+        if (effectiveEntry <= 420) { // إذا حضر في أو قبل 7:00 (بعد ضبط فترة السماح)
+            // الحضور من 6:30 إلى 7:00 - وقت خروج ثابت
+            outM = (gen === 'male') ? baseExitMale : baseExitFemale;
+        } else {
+            // الحضور بعد 7:00 - كل دقيقة بعد 7:00 تضيف دقيقة إضافية لوقت الخروج
+            const minutesLate = effectiveEntry - 420; // عدد الدقائق بعد 7:00
+            
+            if (gen === 'male') {
+                outM = baseExitMale + minutesLate;
+            } else {
+                outM = baseExitFemale + minutesLate;
+            }
+        }
+
+        // معالجة الاستئذان
+        if (type === 'entry') {
+            const [sh, sm] = document.getElementById('pStart').value.split(':').map(Number);
+            const startMins = sh * 60 + sm;
+            
+            // حساب وقت الخروج بناءً على وقت الإذن الرسمي
+            if (startMins <= 420) { // إذن في أو قبل 7:00
+                outM = (gen === 'male') ? baseExitMale : baseExitFemale;
+            } else {
+                // إذن بعد 7:00
+                const minutesLate = startMins - 420;
+                if (gen === 'male') {
+                    outM = baseExitMale + minutesLate;
+                } else {
+                    outM = baseExitFemale + minutesLate;
+                }
+            }
+        } else if (type === 'exit') {
+            outM -= (parseInt(document.getElementById('pExHours').value) * 60);
+        }
+
+        // الحد الأقصى للخروج الساعة 5:00 مساءً (17:00 = 1020 دقيقة)
+        if (outM > 1020) {
+            outM = 1020; // 17:00
+        }
+
+        document.getElementById('outVal').innerText = fmt(outM);
+        
+        // حساب بصمة التواجد
+        let sStart;
+        if (mins >= 390 && mins <= 420) { // الحضور من 6:30 إلى 7:00
+            sStart = 541; // 9:01 ثابت للجميع
+        } else if (mins >= 545 && mins <= 570) { // فترة السماح 9:05-9:30
+            sStart = 661; // 11:01 ثابت (بعد ساعتين ودقيقة من 9:30)
+        } else {
+            // القاعدة العامة: بعد ساعتين ودقيقة واحدة من وقت الحضور
+            sStart = mins + 121;
+        }
+        
+        // عرض بصمة التواجد فقط إذا كانت قيمة منطقية (قبل 24:00)
+        const stampVal = document.getElementById('stampVal');
+        if (sStart < 1440) {
+            const stampEnd = Math.min(sStart + 60, 1440); // لا تتجاوز منتصف الليل
+            stampVal.innerText = fmt(sStart) + " - " + fmt(stampEnd);
+        } else {
+            stampVal.innerText = "غير محسوبة";
+        }
+        
+        // تحديد حالة البصمة الثالثة
+        const status = document.getElementById('statusLabel');
+        status.style.display = 'block';
+        
+        // شروط الإعفاء من بصمة التواجد:
+        // 1. إذا كان وقت الخروج قبل أو يساوي بداية بصمة التواجد
+        // 2. إذا كان الموظف يستخدم استئذان دخول
+        // 3. إذا كان الحضور بعد 10:00
+        if (outM <= sStart || type === 'entry' || mins > 600) {
+            status.innerText = "✅ معفى من بصمة التواجد";
+            status.style.background = "#27ae60"; 
+            status.style.color = "white";
+        } else {
+            status.innerText = "⚠️ مطالب ببصمة التواجد";
+            status.style.background = "#e74c3c"; 
+            status.style.color = "white";
+        }
+    }
+    
+    function reset() { 
+        document.getElementById('outVal').innerText = "--:--"; 
+        document.getElementById('stampVal').innerText = "--:--"; 
+        document.getElementById('statusLabel').style.display = 'none'; 
+    }
+    
+    function fmt(m) { 
+        const hours = Math.floor(m/60);
+        const minutes = m % 60;
+        return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}`;
+    }
+</script>
+</body>
+</html>
